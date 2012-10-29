@@ -1,0 +1,57 @@
+PLAT = /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform
+SDK = /Developer/SDKs/iPhoneSimulator6.0.sdk
+PLATAPPS = $(PLAT)/Developer/Applications
+OCAMLDIR = /usr/local/ocamlxsim
+OCAMLBINDIR = $(OCAMLDIR)/bin/
+CC = $(PLAT)/Developer/usr/bin/llvm-gcc-4.2
+CFLAGS = -arch i386 -isysroot $(PLAT)$(SDK) -gdwarf-2 \
+	-D__IPHONE_OS_VERSION_MIN_REQUIRED=30200 \
+	-isystem $(OCAMLDIR)/lib/ocaml -DCAML_NAME_SPACE
+MFLAGS = -fobjc-legacy-dispatch -fobjc-abi-version=2
+LDFLAGS = -Xlinker -objc_abi_version -Xlinker 2
+
+MOBS = wrap.o main.o
+MLOBS = wrapper.cmx wrappee.cmx cocoa.cmx nsTimer.cmx caLayer.cmx \
+	    uiView.cmx uiButton.cmx uiWindow.cmx uiApplication.cmx \
+	    slide24defs.cmx slide24util.cmx astar.cmx solve.cmx \
+	    slide24ctlr.cmx
+
+build: Slide24
+
+Slide24: $(MOBS) $(MLOBS)
+	$(OCAMLBINDIR)/ocamlopt $(MLFLAGS) -o Slide24 \
+	    -cc '$(CC)' -ccopt '$(CFLAGS)' \
+	    -cclib '$(LDFLAGS)' \
+	    $(MOBS) $(MLOBS) \
+	    -cclib -Wl,-syslibroot,$(PLAT)$(SDK) -cclib -Wl,-no_pie \
+	    -cclib '-framework UIKit' \
+	    -cclib '-framework CoreGraphics' \
+	    -cclib '-framework Foundation'
+
+execute: Slide24 Slide24.nib Info.plist
+	 sh -x ./runsim Slide24
+
+Slide24.nib: Slide24.xib
+	ibtool --compile Slide24.nib Slide24.xib
+
+clean:
+	rm -rf Slide24 build *.o *.cm[iox]
+
+%.cmi: %.mli
+	$(OCAMLBINDIR)ocamlc $(MLFLAGS) -c $<
+
+%.cmo: %.ml
+	$(OCAMLBINDIR)ocamlc $(MLFLAGS) -c $<
+
+%.cmx: %.ml
+	$(OCAMLBINDIR)ocamlopt $(MLFLAGS) -c $<
+
+%.o: %.m
+	$(CC) $(CFLAGS) $(MFLAGS) -c $<
+
+depend::
+	$(OCAMLBINDIR)ocamldep *.ml *.mli > MLDepend
+	cc -MM *.m > MDepend
+
+-include MLDepend
+-include MDepend

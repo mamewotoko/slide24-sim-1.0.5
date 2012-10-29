@@ -1,0 +1,94 @@
+#!/bin/sh
+#
+# runsim   Run an app in the iOS Simulator
+#
+# Copyright (c) 2012 Psellos   http://psellos.com/
+# Licensed under the MIT License:
+#     http://www.opensource.org/licenses/mit-license.php
+#
+USAGE='usage:  runsim  executable  [ nibfile ]'
+
+case $# in
+1) NIBFILE="$1" ;;
+2) NIBFILE="$(basename $2 .nib)" ;;
+*) echo "$USAGE" >&2; exit 1;
+esac
+
+# Pick a uuid for the app (or reuse existing one).
+if ! [ -f runsim.uuid ]; then
+    uuidgen > runsim.uuid
+fi
+UUID=$(cat runsim.uuid)
+
+TOPDIR="$HOME/Library/Application Support/\
+iPhone Simulator/6.0/Applications/$UUID/"
+mkdir -p "$TOPDIR"
+mkdir -p "$TOPDIR/Documents"
+mkdir -p "$TOPDIR/Library"
+mkdir -p "$TOPDIR/tmp"
+mkdir -p "$TOPDIR/$1.app"
+
+cp $1 "$TOPDIR/$1.app"
+cp "$NIBFILE.nib" "$TOPDIR/$1.app"
+
+if [ -f Info.plist ]; then
+    cp Info.plist "$TOPDIR/$1.app"
+else
+    cat > "$TOPDIR/$1.app/Info.plist" <<HERE
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"\
+ "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleDisplayName</key>
+	<string>$1</string>
+	<key>CFBundleExecutable</key>
+	<string>$1</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.example.$1</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$1</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+        <key>CFBundleShortVersionString</key>
+        <string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0</string>
+        <key>UIStatusBarStyle</key>
+        <string>UIStatusBarStyleBlackOpaque</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSMainNibFile</key>
+	<string>$NIBFILE</string>
+</dict>
+</plist>
+HERE
+fi
+
+echo -n 'AAPL????' > "$TOPDIR/$1.app/PkgInfo"
+
+if [ -f Icon.png ]; then
+    cp Icon.png "$TOPDIR/$1.app"
+fi
+if [ -f Default.png ]; then
+    cp Default.png "$TOPDIR/$1.app"
+fi
+
+# Get location of Xcode, otherwise use default
+if [ -f runsim.xcloc ]; then
+    XCLOC="$(cat runsim.xcloc)"
+else
+    XCLOC=/Applications/Xcode.app
+fi
+
+open "$XCLOC"/Contents/\
+Developer/Platforms/iPhoneSimulator.platform/\
+Developer/Applications/iPhone\ Simulator.app
